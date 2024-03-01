@@ -13,6 +13,8 @@
 - https://www.lirc.org/html/irtoy.html
 - https://github.com/irdroid/usb_infrared_transceiver
 - https://community.home-assistant.io/t/how-to-add-ir-tranmitter-to-enhance-your-audio-video-experince/446033
+- https://superuser.com/questions/1758859/how-to-identify-the-protocol-of-ir-remote-infrared-remote
+- https://manpages.debian.org/testing/ir-keytable/rc_keymap.5.en.html
 
 
 ### Observe Protocol and Key Codes - V1
