@@ -7,12 +7,14 @@ import (
 	// "syscall"
 	"os"
 	"bytes"
+	"path/filepath"
 	"os/exec"
 	// "regexp"
 	"io/ioutil"
 	"strings"
 	"runtime"
 	utils "github.com/0187773933/IRController/v1/utils"
+	types "github.com/0187773933/IRController/v1/types"
 	gousb "github.com/google/gousb"
 )
 
@@ -31,6 +33,8 @@ const RECEIVE_ONLY = 3
 // ir-ctl -d /dev/lirc0 --features
 
 type IRController struct {
+	Config *types.ConfigFile `yaml:"-"`
+	Remote string `yaml:"remote"`
 	DevicePaths []string `yaml:"device_paths"`
 	DevicePath string `yaml:"device_path"`
 	DeviceType int `yaml:"device_type"`
@@ -83,12 +87,12 @@ func LinuxFindDevices() {
 func LinuxGetLIRCDevices() ( results []string ) {
 	files, err := ioutil.ReadDir( "/dev" )
 	if err != nil {
-		fmt.Println("Error reading /dev directory:", err)
+		fmt.Println( "Error reading /dev directory:" , err )
 		return
 	}
 	for _ , file := range files {
 		file_name := file.Name()
-		if strings.HasPrefix( file_name, "lirc" ) {
+		if strings.HasPrefix( file_name , "lirc" ) {
 			results = append( results , "/dev/" + file_name )
 		}
 	}
@@ -123,19 +127,24 @@ func LinuxGetDeviceType( device_path string ) ( result int ) {
 // https://github.com/libusb/libusb/wiki
 // sudo apt-get install libusb-1.0-0-dev -y
 // https://pkg.go.dev/github.com/google/gousb#DeviceDesc
-func NewLinux() ( result IRController ) {
+func NewLinux( config *types.ConfigFile ) ( result IRController ) {
+	result.Config = config
+	result.Remote = result.Config.DefaultRemote
 	result.DevicePaths = LinuxGetLIRCDevices()
 	result.DevicePath = result.DevicePaths[ 0 ]
 	result.DeviceType = LinuxGetDeviceType( result.DevicePath )
+	if err := os.MkdirAll( result.Config.KeySaveFileBasePath , 0755 ); err != nil {
+		fmt.Println( "Failed to create directory: %s" , err )
+	}
 	return
 }
 
 // 2.) Get Features of USB Controller
 // ir-ctl -f
-func New() ( result IRController ) {
+func New( config *types.ConfigFile ) ( result IRController ) {
 	switch os := runtime.GOOS; os {
 		case "linux":
-			result = NewLinux()
+			result = NewLinux( config )
 			break;
 		case "windows":
 			fmt.Println( "not implemented for windows" )
@@ -160,7 +169,7 @@ func ( irc *IRController ) TransmitLinux( code string ) {
 }
 
 func ( irc *IRController ) ScanLinux() {
-	cmd := exec.Command( "ir-keytable" , "-v" , "-t" ,
+	cmd := exec.Command( "sudo" , "ir-keytable" , "-v" , "-t" ,
 		"-p", "rc-5,rc-5-sz,jvc,samsung,sony,nec,sanyo,mce_kbd,rc-6,sharp,xmp", "-s", "rc0")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -192,7 +201,8 @@ func ( irc *IRController ) ScanLinux() {
 // ir-ctl -d /dev/lirc0 --receive=samnsung_power.key
 func ( irc *IRController ) ScanRawLinux( save_path string ) {
 	fmt.Println( "Press Single Button on IR Remote Once , then space or enter on computer keyboard to stop recording" )
-	key_path := fmt.Sprintf("%s.key", save_path)
+	key_name := fmt.Sprintf( "%s.key" , save_path )
+	key_path := filepath.Join( irc.Config.KeySaveFileBasePath , key_name )
 	cmd := exec.Command( "ir-ctl" , "-d" , irc.DevicePath , "-1" , "-r" , "--mode2" , fmt.Sprintf( "--receive=%s" , key_path ) )
 
 	// Directly attach command's stdout and stderr to the os.Stdout and os.Stderr
@@ -209,17 +219,17 @@ func ( irc *IRController ) ScanRawLinux( save_path string ) {
 	go func() {
 		reader := bufio.NewReader(os.Stdin)
 		for {
-			char, _, err := reader.ReadRune()
+			char , _ , err := reader.ReadRune()
 			if err != nil {
-				fmt.Printf("Error reading rune: %v\n", err)
+				fmt.Printf( "Error reading rune: %v\n" , err )
 				return
 			}
 
 			// Exit on 'Enter' or 'Space' key press.
 			if char == '\r' || char == '\n' || char == ' ' {
-				fmt.Println("Stopping IR capture...")
-				if err := cmd.Process.Signal(os.Interrupt); err != nil {
-					fmt.Printf("Error sending interrupt: %v\n", err)
+				fmt.Println( "Stopping IR capture..." )
+				if err := cmd.Process.Signal( os.Interrupt ); err != nil {
+					fmt.Printf( "Error sending interrupt: %v\n" , err )
 				}
 				return
 			}
@@ -228,7 +238,7 @@ func ( irc *IRController ) ScanRawLinux( save_path string ) {
 
 	// Wait for the command to complete or to be interrupted.
 	if err := cmd.Wait(); err != nil {
-		fmt.Printf("IR capture stopped: %v\n", err)
+		fmt.Printf( "IR capture stopped: %v\n" , err )
 		return
 	}
 }
@@ -243,10 +253,45 @@ func ( irc *IRController ) TransmitRawLinux( save_path string ) {
 	}
 }
 
+func (irc *IRController) PressKeyLinux(key_name string) {
+    remote := irc.Config.Remotes[irc.Remote] // Access the Remote instance
+    key, exists := remote.Keys[key_name]     // Access the Key from the Remote's Keys map
+
+    if !exists {
+        fmt.Println("Key does not exist:", key_name)
+        return
+    }
+
+    if key.Code != "" {
+        irc.TransmitLinux(key.Code)
+    } else {
+        // If Code is empty, assume KeyPath should be used (adjust logic as needed)
+        fmt.Println("then we need to send as a key file")
+        // Here you would presumably use key.KeyPath, but it's not shown in this snippet
+    }
+}
+
 func ( irc *IRController ) Transmit( code string ) {
 	switch os := runtime.GOOS; os {
 		case "linux":
 			irc.TransmitLinux( code )
+			break;
+		case "windows":
+			fmt.Println( "transmit not implemented for windows" )
+			break;
+		case "darwin":
+			fmt.Println( "transmitnot implemented for mac osx" )
+			break;
+		default:
+			fmt.Println( "transmit not implemented for" , os )
+			break;
+	}
+}
+
+func ( irc *IRController ) PressKey( key string ) {
+	switch os := runtime.GOOS; os {
+		case "linux":
+			irc.PressKeyLinux( key )
 			break;
 		case "windows":
 			fmt.Println( "transmit not implemented for windows" )
