@@ -1,21 +1,33 @@
-server_base_url: "http://localhost:5953"
-server_live_url: "http://localhost:5953"
-server_port: "5953"
-server_api_key: "asdf"
-server_cookie_secret: "asdf="
-server_cookie_secret_message: "why"
-admin_username: "asdf"
-admin_password: "asdf"
-time_zone: "America/New_York"
-bolt_db_path: "./bolt.db"
-bolt_db_encryption_key: "asdf"
-redis_host: "localhost"
-redis_port: "6379"
-redis_db_number: 1
-redis_password: ""
-serve_directory: "./public"
-serve_browsable: true
-serve_index_file: "./index.html"
-public_limiter_max: 1
-public_limiter_seconds: 1
-public_limiter_max_limit_count: 3
+key_save_file_base_path: "./KEYS"
+default_remote: "samsung"
+remotes:
+  samsung:
+    keys:
+      power:
+        code: "necx:0x70702"
+      volume_up:
+        code: "necx:0x70707"
+      volume_down:
+        code: "necx:0x7070b"
+      mute:
+        code: "necx:0x7070f"
+      left:
+        code: "necx:0x70765"
+      right:
+        code: "necx:0x70762"
+      up:
+        code: "necx:0x70760"
+      down:
+        code: "necx:0x70761"
+      enter:
+        code: "necx:0x70768"
+      return:
+        code: "necx:0x70758"
+      exit:
+        code: "necx:0x7072d"
+      menu:
+        code: "necx:0x7071a"
+      source:
+        code: "necx:0x70701"
+      test_raw:
+        key_path: "test_raw"

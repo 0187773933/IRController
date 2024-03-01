@@ -199,9 +199,9 @@ func ( irc *IRController ) ScanLinux() {
 
 
 // ir-ctl -d /dev/lirc0 --receive=samnsung_power.key
-func ( irc *IRController ) ScanRawLinux( save_path string ) {
+func ( irc *IRController ) SaveKeyFileLinux( save_path string ) {
 	fmt.Println( "Press Single Button on IR Remote Once , then space or enter on computer keyboard to stop recording" )
-	key_name := fmt.Sprintf( "%s.key" , save_path )
+	key_name := fmt.Sprintf( "%s-%s.key" , irc.Remote , save_path )
 	key_path := filepath.Join( irc.Config.KeySaveFileBasePath , key_name )
 	cmd := exec.Command( "ir-ctl" , "-d" , irc.DevicePath , "-1" , "-r" , "--mode2" , fmt.Sprintf( "--receive=%s" , key_path ) )
 
@@ -243,8 +243,9 @@ func ( irc *IRController ) ScanRawLinux( save_path string ) {
 	}
 }
 
-func ( irc *IRController ) TransmitRawLinux( save_path string ) {
-	key_path := fmt.Sprintf( "%s.key" , save_path )
+func ( irc *IRController ) TransmitKeyFileLinux( save_path string ) {
+	key_name := fmt.Sprintf( "%s-%s.key" , irc.Remote , save_path )
+	key_path := filepath.Join( irc.Config.KeySaveFileBasePath , key_name )
 	cmd := exec.Command( "ir-ctl" , "-d" , irc.DevicePath , fmt.Sprintf( "--send=%s" , key_path ) )
 	if err := cmd.Run(); err != nil {
 		fmt.Printf("Error sending IR command: %v\n", err)
@@ -253,22 +254,18 @@ func ( irc *IRController ) TransmitRawLinux( save_path string ) {
 	}
 }
 
-func (irc *IRController) PressKeyLinux(key_name string) {
-    remote := irc.Config.Remotes[irc.Remote] // Access the Remote instance
-    key, exists := remote.Keys[key_name]     // Access the Key from the Remote's Keys map
-
-    if !exists {
-        fmt.Println("Key does not exist:", key_name)
-        return
-    }
-
-    if key.Code != "" {
-        irc.TransmitLinux(key.Code)
-    } else {
-        // If Code is empty, assume KeyPath should be used (adjust logic as needed)
-        fmt.Println("then we need to send as a key file")
-        // Here you would presumably use key.KeyPath, but it's not shown in this snippet
-    }
+func ( irc *IRController ) PressKeyLinux( key_name string ) {
+	remote := irc.Config.Remotes[ irc.Remote ]
+	key , exists := remote.Keys[ key_name ]
+	if !exists {
+		fmt.Println( "Key does not exist:" , key_name )
+		return
+	}
+	if key.Code != "" {
+		irc.TransmitLinux( key.Code )
+	} else {
+		irc.TransmitKeyFileLinux( key.KeyPath )
+	}
 }
 
 func ( irc *IRController ) Transmit( code string ) {
@@ -339,10 +336,10 @@ func ( irc *IRController ) Scan() {
 	}
 }
 
-func ( irc *IRController ) ScanRaw( key string ) {
+func ( irc *IRController ) SaveKeyFile( key string ) {
 	switch os := runtime.GOOS; os {
 		case "linux":
-			irc.ScanRawLinux( key )
+			irc.SaveKeyFileLinux( key )
 			break;
 		case "windows":
 			fmt.Println( "scan raw not implemented for windows" )
@@ -356,10 +353,10 @@ func ( irc *IRController ) ScanRaw( key string ) {
 	}
 }
 
-func ( irc *IRController ) TransmitRaw( key string ) {
+func ( irc *IRController ) TransmitKeyFile( key string ) {
 	switch os := runtime.GOOS; os {
 		case "linux":
-			irc.TransmitRawLinux( key )
+			irc.TransmitKeyFileLinux( key )
 			break;
 		case "windows":
 			fmt.Println( "scan raw not implemented for windows" )

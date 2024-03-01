@@ -17,9 +17,10 @@ func main() {
 
 	x := ir.New( &config )
 	// x.Scan()
-	x.PressKey( "power" )
+	// x.PressKey( "power" )
 	// x.Transmit( "necx:0x70702" )
 	// time.Sleep( 10 * time.Second )
-	// x.ScanRaw( "volume_up" )
-	// x.TransmitRaw( "volume_up" )
+	// x.SaveKeyFile( "test_raw" )
+	// x.TransmitKeyFile( "test_raw" )
+	x.PressKey( "test_raw" )
 }
