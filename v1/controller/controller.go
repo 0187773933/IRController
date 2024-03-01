@@ -2,7 +2,10 @@ package controller
 
 import (
 	"fmt"
-	// "bufio"
+	"bufio"
+	// "os/signal"
+	// "syscall"
+	"os"
 	"bytes"
 	"os/exec"
 	// "regexp"
@@ -156,6 +159,90 @@ func ( irc *IRController ) TransmitLinux( code string ) {
 	fmt.Println( out.String() )
 }
 
+func ( irc *IRController ) ScanLinux() {
+	cmd := exec.Command( "ir-keytable" , "-v" , "-t" ,
+		"-p", "rc-5,rc-5-sz,jvc,samsung,sony,nec,sanyo,mce_kbd,rc-6,sharp,xmp", "-s", "rc0")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Start(); err != nil {
+		fmt.Printf("Error starting Cmd: %v\n", err)
+		return
+	}
+	if err := cmd.Wait(); err != nil {
+		fmt.Printf("Error waiting for Cmd: %v\n", err)
+		return
+	}
+}
+
+// func ( irc *IRController ) ScanRawLinux( save_path string ) {
+// 	cmd := exec.Command( "ir-ctl" , "-d" , irc.DevicePath , "--receive" , save_path )
+// 	cmd.Stdout = os.Stdout
+// 	cmd.Stderr = os.Stderr
+// 	if err := cmd.Start(); err != nil {
+// 		fmt.Printf("Error starting Cmd: %v\n", err)
+// 		return
+// 	}
+// 	if err := cmd.Wait(); err != nil {
+// 		fmt.Printf("Error waiting for Cmd: %v\n", err)
+// 		return
+// 	}
+// }
+
+
+// ir-ctl -d /dev/lirc0 --receive=samnsung_power.key
+func ( irc *IRController ) ScanRawLinux( save_path string ) {
+	fmt.Println( "Press Single Button on IR Remote Once , then space or enter on computer keyboard to stop recording" )
+	key_path := fmt.Sprintf("%s.key", save_path)
+	cmd := exec.Command( "ir-ctl" , "-d" , irc.DevicePath , "-1" , "-r" , "--mode2" , fmt.Sprintf( "--receive=%s" , key_path ) )
+
+	// Directly attach command's stdout and stderr to the os.Stdout and os.Stderr
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	// Start the command asynchronously.
+	if err := cmd.Start(); err != nil {
+		fmt.Printf("Error starting Cmd: %v\n", err)
+		return
+	}
+
+	// Set up channel and goroutine for handling user interrupt.
+	go func() {
+		reader := bufio.NewReader(os.Stdin)
+		for {
+			char, _, err := reader.ReadRune()
+			if err != nil {
+				fmt.Printf("Error reading rune: %v\n", err)
+				return
+			}
+
+			// Exit on 'Enter' or 'Space' key press.
+			if char == '\r' || char == '\n' || char == ' ' {
+				fmt.Println("Stopping IR capture...")
+				if err := cmd.Process.Signal(os.Interrupt); err != nil {
+					fmt.Printf("Error sending interrupt: %v\n", err)
+				}
+				return
+			}
+		}
+	}()
+
+	// Wait for the command to complete or to be interrupted.
+	if err := cmd.Wait(); err != nil {
+		fmt.Printf("IR capture stopped: %v\n", err)
+		return
+	}
+}
+
+func ( irc *IRController ) TransmitRawLinux( save_path string ) {
+	key_path := fmt.Sprintf( "%s.key" , save_path )
+	cmd := exec.Command( "ir-ctl" , "-d" , irc.DevicePath , fmt.Sprintf( "--send=%s" , key_path ) )
+	if err := cmd.Run(); err != nil {
+		fmt.Printf("Error sending IR command: %v\n", err)
+	} else {
+		fmt.Println("IR command sent successfully.")
+	}
+}
+
 func ( irc *IRController ) Transmit( code string ) {
 	switch os := runtime.GOOS; os {
 		case "linux":
@@ -193,7 +280,7 @@ func ( irc *IRController ) Receive() {
 func ( irc *IRController ) Scan() {
 	switch os := runtime.GOOS; os {
 		case "linux":
-			fmt.Println( "scan not implemented for linux" )
+			irc.ScanLinux()
 			break;
 		case "windows":
 			fmt.Println( "scan not implemented for windows" )
@@ -203,6 +290,40 @@ func ( irc *IRController ) Scan() {
 			break;
 		default:
 			fmt.Println( "scan not implemented for" , os )
+			break;
+	}
+}
+
+func ( irc *IRController ) ScanRaw( key string ) {
+	switch os := runtime.GOOS; os {
+		case "linux":
+			irc.ScanRawLinux( key )
+			break;
+		case "windows":
+			fmt.Println( "scan raw not implemented for windows" )
+			break;
+		case "darwin":
+			fmt.Println( "scan raw not implemented for mac osx" )
+			break;
+		default:
+			fmt.Println( "scan raw not implemented for" , os )
+			break;
+	}
+}
+
+func ( irc *IRController ) TransmitRaw( key string ) {
+	switch os := runtime.GOOS; os {
+		case "linux":
+			irc.TransmitRawLinux( key )
+			break;
+		case "windows":
+			fmt.Println( "scan raw not implemented for windows" )
+			break;
+		case "darwin":
+			fmt.Println( "scan raw not implemented for mac osx" )
+			break;
+		default:
+			fmt.Println( "scan raw not implemented for" , os )
 			break;
 	}
 }
