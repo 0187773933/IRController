@@ -3,7 +3,7 @@
 # Set variables
 LOCK_FILE="docker_build.lock"
 HASH_FILE="git.hash"
-CONTAINER_NAME="public-file-server"
+CONTAINER_NAME="public-ir-controller"
 GITHUB_REPO="https://github.com/0187773933/IRController"
 
 # Check for a lock file
