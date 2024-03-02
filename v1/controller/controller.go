@@ -32,7 +32,7 @@ const RECEIVE_ONLY = 3
 // lsusb -s 001:018 -v
 // ir-ctl -d /dev/lirc0 --features
 
-type IRController struct {
+type Controller struct {
 	Config *types.ConfigFile `yaml:"-"`
 	Remote string `yaml:"remote"`
 	DevicePaths []string `yaml:"device_paths"`
@@ -127,7 +127,7 @@ func LinuxGetDeviceType( device_path string ) ( result int ) {
 // https://github.com/libusb/libusb/wiki
 // sudo apt-get install libusb-1.0-0-dev -y
 // https://pkg.go.dev/github.com/google/gousb#DeviceDesc
-func NewLinux( config *types.ConfigFile ) ( result IRController ) {
+func NewLinux( config *types.ConfigFile ) ( result Controller ) {
 	result.Config = config
 	result.Remote = result.Config.DefaultRemote
 	result.DevicePaths = LinuxGetLIRCDevices()
@@ -141,7 +141,7 @@ func NewLinux( config *types.ConfigFile ) ( result IRController ) {
 
 // 2.) Get Features of USB Controller
 // ir-ctl -f
-func New( config *types.ConfigFile ) ( result IRController ) {
+func New( config *types.ConfigFile ) ( result Controller ) {
 	switch os := runtime.GOOS; os {
 		case "linux":
 			result = NewLinux( config )
@@ -159,7 +159,7 @@ func New( config *types.ConfigFile ) ( result IRController ) {
 	return
 }
 
-func ( irc *IRController ) TransmitLinux( code string ) {
+func ( irc *Controller ) TransmitLinux( code string ) {
 	cmd := exec.Command( "ir-ctl" , "-d" , irc.DevicePath , "-S" , code )
 	var out bytes.Buffer
 	cmd.Stdout = &out
@@ -168,7 +168,7 @@ func ( irc *IRController ) TransmitLinux( code string ) {
 	fmt.Println( out.String() )
 }
 
-func ( irc *IRController ) ScanLinux() {
+func ( irc *Controller ) ScanLinux() {
 	cmd := exec.Command( "sudo" , "ir-keytable" , "-v" , "-t" ,
 		"-p", "rc-5,rc-5-sz,jvc,samsung,sony,nec,sanyo,mce_kbd,rc-6,sharp,xmp", "-s", "rc0")
 	cmd.Stdout = os.Stdout
@@ -183,7 +183,7 @@ func ( irc *IRController ) ScanLinux() {
 	}
 }
 
-// func ( irc *IRController ) ScanRawLinux( save_path string ) {
+// func ( irc *Controller ) ScanRawLinux( save_path string ) {
 // 	cmd := exec.Command( "ir-ctl" , "-d" , irc.DevicePath , "--receive" , save_path )
 // 	cmd.Stdout = os.Stdout
 // 	cmd.Stderr = os.Stderr
@@ -199,7 +199,7 @@ func ( irc *IRController ) ScanLinux() {
 
 
 // ir-ctl -d /dev/lirc0 --receive=samnsung_power.key
-func ( irc *IRController ) SaveKeyFileLinux( save_path string ) {
+func ( irc *Controller ) SaveKeyFileLinux( save_path string ) {
 	fmt.Println( "Press Single Button on IR Remote Once , then space or enter on computer keyboard to stop recording" )
 	key_name := fmt.Sprintf( "%s-%s.key" , irc.Remote , save_path )
 	key_path := filepath.Join( irc.Config.KeySaveFileBasePath , key_name )
@@ -243,7 +243,7 @@ func ( irc *IRController ) SaveKeyFileLinux( save_path string ) {
 	}
 }
 
-func ( irc *IRController ) TransmitKeyFileLinux( save_path string ) {
+func ( irc *Controller ) TransmitKeyFileLinux( save_path string ) {
 	key_name := fmt.Sprintf( "%s-%s.key" , irc.Remote , save_path )
 	key_path := filepath.Join( irc.Config.KeySaveFileBasePath , key_name )
 	cmd := exec.Command( "ir-ctl" , "-d" , irc.DevicePath , fmt.Sprintf( "--send=%s" , key_path ) )
@@ -254,7 +254,7 @@ func ( irc *IRController ) TransmitKeyFileLinux( save_path string ) {
 	}
 }
 
-func ( irc *IRController ) PressKeyLinux( key_name string ) {
+func ( irc *Controller ) PressKeyLinux( key_name string ) {
 	remote := irc.Config.Remotes[ irc.Remote ]
 	key , exists := remote.Keys[ key_name ]
 	if !exists {
@@ -268,7 +268,7 @@ func ( irc *IRController ) PressKeyLinux( key_name string ) {
 	}
 }
 
-func ( irc *IRController ) Transmit( code string ) {
+func ( irc *Controller ) Transmit( code string ) {
 	switch os := runtime.GOOS; os {
 		case "linux":
 			irc.TransmitLinux( code )
@@ -285,7 +285,7 @@ func ( irc *IRController ) Transmit( code string ) {
 	}
 }
 
-func ( irc *IRController ) PressKey( key string ) {
+func ( irc *Controller ) PressKey( key string ) {
 	switch os := runtime.GOOS; os {
 		case "linux":
 			irc.PressKeyLinux( key )
@@ -302,7 +302,7 @@ func ( irc *IRController ) PressKey( key string ) {
 	}
 }
 
-func ( irc *IRController ) Receive() {
+func ( irc *Controller ) Receive() {
 	switch os := runtime.GOOS; os {
 		case "linux":
 			fmt.Println( "receive not implemented for linux" )
@@ -319,7 +319,7 @@ func ( irc *IRController ) Receive() {
 	}
 }
 
-func ( irc *IRController ) Scan() {
+func ( irc *Controller ) Scan() {
 	switch os := runtime.GOOS; os {
 		case "linux":
 			irc.ScanLinux()
@@ -336,7 +336,7 @@ func ( irc *IRController ) Scan() {
 	}
 }
 
-func ( irc *IRController ) SaveKeyFile( key string ) {
+func ( irc *Controller ) SaveKeyFile( key string ) {
 	switch os := runtime.GOOS; os {
 		case "linux":
 			irc.SaveKeyFileLinux( key )
@@ -353,7 +353,7 @@ func ( irc *IRController ) SaveKeyFile( key string ) {
 	}
 }
 
-func ( irc *IRController ) TransmitKeyFile( key string ) {
+func ( irc *Controller ) TransmitKeyFile( key string ) {
 	switch os := runtime.GOOS; os {
 		case "linux":
 			irc.TransmitKeyFileLinux( key )
